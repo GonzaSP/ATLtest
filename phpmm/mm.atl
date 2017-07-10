@@ -7,7 +7,7 @@
 module mm;
 create OUT : MA from IN : MI, INN : UML, INNN : ME;
 
-
+-- un comentario
 
 rule ifml2app{
 	from
