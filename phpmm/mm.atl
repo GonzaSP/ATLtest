@@ -1,0 +1,107 @@
+-- @nsURI MA=http://www.app.meta
+-- @nsURI MI=http://www.omg.org/spec/20130218/core
+-- @nsURI ME=http://www.omg.org/spec/20130218/ext
+-- @nsURI UML=http://www.eclipse.org/uml2/5.0.0/UML
+
+
+module mm;
+create OUT : MA from IN : MI, INN : UML, INNN : ME;
+
+
+
+rule ifml2app{
+	from
+		i : MI!IFMLModel
+	to
+		a : MA!App(
+			name <- i.name,
+			aPackageModel <- x,
+			aPackageView <- y,
+			aPackageController <- z
+		),
+		x : MA!PackageModel(
+			name <- i.domainModel.name,
+			models <- UML!Class.allInstances()
+       					->select(e | e.oclIsKindOf(UML!Class))
+       					-- ->collect(e | e)
+			),		
+		y : MA!PackageView(
+			name <- i.interactionFlowModel.name,
+			views <- MI!ViewContainer.allInstances()
+       					->select(b | b.oclIsKindOf(MI!ViewContainer))
+       					-- ->collect(b | b)
+		),
+		z : MA!PackageController(
+			name <- i.domainModel.name,
+			controllers <- UML!Class.allInstances()
+								->select(r|r.oclIsKindOf(UML!Class))
+								->collect(r|thisModule.controller(r))
+		)
+}		
+
+lazy rule controller{
+	from
+		i : UML!Class
+	to
+		a : MA!Controller(
+			name <- i.name,
+			methods <- MI!IFMLAction.allInstances()
+						->select(b|(b.name.toLower().startsWith(i.name.toLower())) or (b.name.toLower().endsWith(i.name.toLower())))
+						-- ->collect(b|b)
+			)				
+}
+
+rule method{
+	from
+		i : MI!IFMLAction
+	to
+		a : MA!Method(
+			name <- i.name,
+			inAttributes <- i.parameters
+								->select(b|b.direction = #"in" or b.direction = #inout)
+								->collect(b|b.name.toLower()),
+			outAttributes <- i.parameters
+								->select(b|b.direction = #out or b.direction = #inout)
+								->collect(b|b.name.toLower())
+		)		
+}
+
+rule windows{
+	from
+		i : MI!ViewContainer
+	to
+		a : MA!View(
+			name <- i.name,	
+			components <- i.viewElements->select(b|b.oclIsKindOf(ME!Form))->collect(b|thisModule.forms(b))
+		)
+}
+	
+lazy rule forms{
+	from
+		i : ME!Form
+	to
+		a : MA!Form(
+			name <- i.name	
+		)
+		
+}
+rule class{
+	from
+		i : UML!Class
+	to
+		x : MA!Model(
+			name<-i.name,
+			elements <- UML!Property.allInstances()
+							->select(e | e.namespace.name = x.name)
+							-- ->collect(e | e)						
+		) 
+}
+
+rule property{
+	from
+		i : UML!Property
+	to
+		x : MA!Element(
+			name<-i.name)
+}
+
